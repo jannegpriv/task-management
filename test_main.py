@@ -1,5 +1,15 @@
 import pytest
 from main import app
+import test_config
+from models import Base, engine
+
+@pytest.fixture(autouse=True)
+def setup_test_database():
+    # Create all tables before each test
+    Base.metadata.create_all(bind=engine)
+    yield
+    # Drop all tables after each test
+    Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
 def client():
