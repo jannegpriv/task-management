@@ -38,9 +38,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Wait for PostgreSQL
+      run: |
+        timeout 20s bash -c "until pg_isready -h localhost -p 5432; do sleep 1; done"
+      
     - name: Run tests
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskmanagement
+        PYTHONPATH: ${{ github.workspace }}
       run: |
         pytest -v
 
