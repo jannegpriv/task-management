@@ -1,14 +1,18 @@
 name: CI
 
 on:
+  # Trigger on push to main, but not if it's a CI/CD pipeline commit
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - '.github/workflows/**'
+  # Trigger on pull requests to main
   pull_request:
     branches: [ "main" ]
 
 # Cancel any in-progress job or run
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
