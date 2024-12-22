@@ -1,46 +1,116 @@
 from flask import Flask, jsonify, request
+from models import Task, get_db, SessionLocal
+from sqlalchemy.orm import Session
+from datetime import datetime
 
 app = Flask(__name__)
-
-# In-memory storage for tasks
-tasks = []
 
 # Create a task
 @app.route('/tasks', methods=['POST'])
 def create_task():
     data = request.json
-    task = {'id': len(tasks) + 1, 'title': data['title'], 'completed': False}
-    tasks.append(task)
-    return jsonify(task), 201
+    db = SessionLocal()
+    try:
+        task = Task(
+            title=data['title'],
+            description=data.get('description'),
+            completed=data.get('completed', False)
+        )
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        return jsonify({
+            'id': task.id,
+            'title': task.title,
+            'description': task.description,
+            'completed': task.completed,
+            'created_at': task.created_at.isoformat(),
+            'updated_at': task.updated_at.isoformat()
+        }), 201
+    finally:
+        db.close()
 
 # Read all tasks
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
-    return jsonify(tasks)
+    db = SessionLocal()
+    try:
+        tasks = db.query(Task).all()
+        return jsonify([{
+            'id': task.id,
+            'title': task.title,
+            'description': task.description,
+            'completed': task.completed,
+            'created_at': task.created_at.isoformat(),
+            'updated_at': task.updated_at.isoformat()
+        } for task in tasks])
+    finally:
+        db.close()
 
 # Read a specific task
 @app.route('/tasks/<int:task_id>', methods=['GET'])
 def get_task(task_id):
-    task = next((task for task in tasks if task['id'] == task_id), None)
-    return jsonify(task) if task else ('', 404)
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task is None:
+            return '', 404
+        return jsonify({
+            'id': task.id,
+            'title': task.title,
+            'description': task.description,
+            'completed': task.completed,
+            'created_at': task.created_at.isoformat(),
+            'updated_at': task.updated_at.isoformat()
+        })
+    finally:
+        db.close()
 
 # Update a task
 @app.route('/tasks/<int:task_id>', methods=['PUT'])
 def update_task(task_id):
     data = request.json
-    task = next((task for task in tasks if task['id'] == task_id), None)
-    if task:
-        task['title'] = data.get('title', task['title'])
-        task['completed'] = data.get('completed', task['completed'])
-        return jsonify(task)
-    return ('', 404)
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task is None:
+            return '', 404
+        
+        if 'title' in data:
+            task.title = data['title']
+        if 'description' in data:
+            task.description = data['description']
+        if 'completed' in data:
+            task.completed = data['completed']
+        
+        task.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(task)
+        
+        return jsonify({
+            'id': task.id,
+            'title': task.title,
+            'description': task.description,
+            'completed': task.completed,
+            'created_at': task.created_at.isoformat(),
+            'updated_at': task.updated_at.isoformat()
+        })
+    finally:
+        db.close()
 
 # Delete a task
 @app.route('/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
-    global tasks
-    tasks = [task for task in tasks if task['id'] != task_id]
-    return ('', 204)
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task is None:
+            return '', 404
+        db.delete(task)
+        db.commit()
+        return '', 204
+    finally:
+        db.close()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5555)
