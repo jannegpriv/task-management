@@ -1,9 +1,19 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from models import Task, get_db, SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime
 
 app = Flask(__name__)
+
+# Configure CORS
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000"],  # React development server
+        "methods": ["GET", "POST", "PUT", "DELETE"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # Create a task
 @app.route('/tasks', methods=['POST'])
