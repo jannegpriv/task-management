@@ -65,12 +65,15 @@ jobs:
     - name: Build and push Docker image
       env:
         REGISTRY: ghcr.io
-        IMAGE_NAME: ${{ github.repository }}
+        IMAGE_NAME: ${{ github.repository_owner }}/task-management-api
       run: |
+        # Convert image name to lowercase
+        IMAGE_NAME_LOWER=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')
+        
         # Build the image
-        docker build -t $REGISTRY/$IMAGE_NAME:latest .
-        docker tag $REGISTRY/$IMAGE_NAME:latest $REGISTRY/$IMAGE_NAME:${{ github.sha }}
+        docker build -t $REGISTRY/$IMAGE_NAME_LOWER:latest .
+        docker tag $REGISTRY/$IMAGE_NAME_LOWER:latest $REGISTRY/$IMAGE_NAME_LOWER:${{ github.sha }}
         
         # Push both tags
-        docker push $REGISTRY/$IMAGE_NAME:latest
-        docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
+        docker push $REGISTRY/$IMAGE_NAME_LOWER:latest
+        docker push $REGISTRY/$IMAGE_NAME_LOWER:${{ github.sha }}
