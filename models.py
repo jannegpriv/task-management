@@ -1,30 +1,40 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
-from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, Enum as SQLEnum, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import func
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from datetime import datetime
+from enum import Enum
 
 Base = declarative_base()
 
-class Task(Base):
-    __tablename__ = "tasks"
+class TaskStatus(str, Enum):
+    TODO = "TODO"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
 
-    id = Column(Integer, primary_key=True, index=True)
+class Task(Base):
+    __tablename__ = 'tasks'
+
+    id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    completed = Column(Boolean, default=False)
+    description = Column(String)
+    status = Column(SQLEnum(TaskStatus), nullable=False, default=TaskStatus.TODO)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-# Create all tables
-Base.metadata.create_all(bind=engine)
+class Settings(Base):
+    __tablename__ = 'settings'
+
+    id = Column(Integer, primary_key=True)
+    dark_mode = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+# Database connection
+DATABASE_URL = f'postgresql://{os.getenv("DB_USER", "postgres")}:{os.getenv("DB_PASSWORD", "postgres")}@{os.getenv("DB_HOST", "db")}/{os.getenv("DB_NAME", "taskmanagement")}'
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     db = SessionLocal()
