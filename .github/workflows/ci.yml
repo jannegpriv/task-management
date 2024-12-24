@@ -39,6 +39,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --health-start-period 10s
 
     steps:
     - uses: actions/checkout@v3
@@ -58,6 +59,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov
+
+    - name: Wait for PostgreSQL
+      run: |
+        echo "Waiting for PostgreSQL to be ready..."
+        until pg_isready -h localhost -p 5432; do
+          sleep 2
+          echo "Still waiting..."
+        done
+        echo "PostgreSQL is ready!"
+        
+    - name: Verify PostgreSQL connection
+      run: |
+        PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d test_taskmanagement -c "\l"
 
     - name: Run Tests
       env:
