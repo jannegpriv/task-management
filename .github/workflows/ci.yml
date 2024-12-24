@@ -20,6 +20,10 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+  POSTGRES_HOST: localhost
+  POSTGRES_DB: test_taskmanagement
 
 jobs:
   test:
@@ -55,13 +59,18 @@ jobs:
         sudo apt-get install -y postgresql-client
     
     - name: Wait for PostgreSQL
+      env:
+        PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       run: |
         echo "Waiting for PostgreSQL to be ready..."
-        until pg_isready -h localhost -p 5432; do
+        until pg_isready -h localhost -p 5432 -U ${{ secrets.POSTGRES_USER }}; do
           sleep 2
           echo "Still waiting..."
         done
         echo "PostgreSQL is ready!"
+        
+        # Verify we can connect and list databases
+        psql -h localhost -U ${{ secrets.POSTGRES_USER }} -c "\l"
 
     - name: Create test database
       env:
@@ -81,6 +90,7 @@ jobs:
         POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         POSTGRES_HOST: localhost
         POSTGRES_DB: test_taskmanagement
+        DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost/test_taskmanagement
       run: |
         pytest --cov=./ --cov-report=xml
 
