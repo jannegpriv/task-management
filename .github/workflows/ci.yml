@@ -31,7 +31,7 @@ jobs:
         env:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: test_taskmanagement
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
@@ -54,12 +54,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y postgresql-client
     
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-
     - name: Wait for PostgreSQL
       run: |
         echo "Waiting for PostgreSQL to be ready..."
@@ -68,10 +62,18 @@ jobs:
           echo "Still waiting..."
         done
         echo "PostgreSQL is ready!"
-        
-    - name: Verify PostgreSQL connection
+
+    - name: Create test database
+      env:
+        PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       run: |
-        PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d test_taskmanagement -c "\l"
+        psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d postgres -c "CREATE DATABASE test_taskmanagement;"
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov psycopg2-binary
 
     - name: Run Tests
       env:
