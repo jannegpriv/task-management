@@ -32,7 +32,7 @@ class Settings(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 # Database connection
-DATABASE_URL = f'postgresql://{os.getenv("DB_USER", "postgres")}:{os.getenv("DB_PASSWORD", "postgres")}@{os.getenv("DB_HOST", "db")}/{os.getenv("DB_NAME", "taskmanagement")}'
+DATABASE_URL = os.getenv('DATABASE_URL', f'postgresql://{os.getenv("POSTGRES_USER", "postgres")}:{os.getenv("POSTGRES_PASSWORD", "postgres")}@{os.getenv("POSTGRES_HOST", "localhost")}/{os.getenv("POSTGRES_DB", "taskmanagement")}')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
