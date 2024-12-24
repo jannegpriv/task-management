@@ -1,19 +1,25 @@
 name: CI
 
 on:
-  # Trigger on push to main, but not if it's a CI/CD pipeline commit
   push:
     branches: [ "main" ]
     paths-ignore:
       - '.github/workflows/**'
-  # Trigger on pull requests to main
   pull_request:
     branches: [ "main" ]
 
-# Cancel any in-progress job or run
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   test:
@@ -23,8 +29,8 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: test_taskmanagement
         ports:
           - 5432:5432
@@ -51,18 +57,22 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    
-    - name: Verify PostgreSQL connection
-      run: |
-        echo "Checking PostgreSQL connection..."
-        PGPASSWORD=postgres psql -h localhost -U postgres -d test_taskmanagement -c '\l'
-      
-    - name: Run tests
+        pip install pytest pytest-cov
+
+    - name: Run Tests
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_taskmanagement
-        PYTHONPATH: ${{ github.workspace }}
+        POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_HOST: localhost
+        POSTGRES_DB: test_taskmanagement
       run: |
-        pytest -v
+        pytest --cov=./ --cov-report=xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: true
 
   build-and-push:
     needs: test
@@ -71,29 +81,77 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Build and push Docker image
-      env:
-        REGISTRY: ghcr.io
-        IMAGE_NAME: ${{ github.repository_owner }}/task-management-api
-      run: |
-        # Convert image name to lowercase
-        IMAGE_NAME_LOWER=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')
-        
-        # Build the image
-        docker build -t $REGISTRY/$IMAGE_NAME_LOWER:latest .
-        docker tag $REGISTRY/$IMAGE_NAME_LOWER:latest $REGISTRY/$IMAGE_NAME_LOWER:${{ github.sha }}
-        
-        # Push both tags
-        docker push $REGISTRY/$IMAGE_NAME_LOWER:latest
-        docker push $REGISTRY/$IMAGE_NAME_LOWER:${{ github.sha }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout k8s-config repository
+        uses: actions/checkout@v3
+        with:
+          repository: jannegpriv/task-management-k8s
+          token: ${{ secrets.CONFIG_REPO_PAT }}
+          path: k8s-config
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Update image tag
+        run: |
+          cd k8s-config/overlays/production
+          kustomize edit set image ghcr.io/jannegpriv/task-management:${{ github.sha }}
+
+      - name: Commit and push changes
+        run: |
+          cd k8s-config
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git commit -m "Update task-management image to ${{ github.sha }}"
+          git push
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -k k8s-config/overlays/production
