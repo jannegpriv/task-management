@@ -1,7 +1,7 @@
 import pytest
 from main import app
 import test_config
-from models import Base, engine, SessionLocal
+from models import Base, engine, SessionLocal, TaskStatus
 from sqlalchemy import text
 import time
 import psycopg2
@@ -81,7 +81,7 @@ def test_create_task(client):
     response = client.post('/tasks', json={'title': 'Test Task'})
     assert response.status_code == 201
     assert response.json['title'] == 'Test Task'
-    assert response.json['completed'] == False
+    assert response.json['status'] == TaskStatus.TODO.value
 
 def test_get_tasks(client):
     response = client.get('/tasks')
@@ -95,7 +95,7 @@ def test_update_task(client):
     
     # Then update it
     update_response = client.put(f'/tasks/{task_id}', 
-                               json={'title': 'Updated Task', 'completed': True})
+                               json={'title': 'Updated Task', 'status': TaskStatus.DONE.value})
     assert update_response.status_code == 200
     assert update_response.json['title'] == 'Updated Task'
-    assert update_response.json['completed'] == True
+    assert update_response.json['status'] == TaskStatus.DONE.value
