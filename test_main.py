@@ -78,17 +78,20 @@ def client():
         yield client
 
 def test_create_task(client):
+    """Test creating a new task."""
     response = client.post('/tasks', json={'title': 'Test Task'})
     assert response.status_code == 201
     assert response.json['title'] == 'Test Task'
     assert response.json['status'] == TaskStatus.TODO.value
 
 def test_get_tasks(client):
+    """Test getting all tasks."""
     response = client.get('/tasks')
     assert response.status_code == 200
     assert isinstance(response.json, list)
 
 def test_update_task(client):
+    """Test updating a task."""
     # First create a task
     create_response = client.post('/tasks', json={'title': 'Test Task'})
     task_id = create_response.json['id']
