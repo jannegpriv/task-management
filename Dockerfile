@@ -21,4 +21,4 @@ RUN chmod +x wait-for-db.sh
 EXPOSE 5555
 
 # Command to run the application
-CMD ["./wait-for-db.sh", "sh", "-c", "alembic upgrade head && python main.py"]
+CMD ["./wait-for-db.sh"]

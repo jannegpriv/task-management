@@ -19,4 +19,4 @@ done
 alembic upgrade head
 
 >&2 echo "Starting API server"
-exec "$@"
+python main.py
