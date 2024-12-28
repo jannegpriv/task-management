@@ -1,17 +1,22 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Blueprint
 from flask_cors import CORS
 from models import Task, TaskStatus, Settings, SessionLocal
 from datetime import datetime
 from sqlalchemy import desc, asc
 
+# Create the Flask app
 app = Flask(__name__)
+
+# Create a blueprint for API routes
+api = Blueprint('api', __name__, url_prefix='/api')
 
 # Configure CORS
 CORS(app, resources={
     r"/*": {
         "origins": [
             "http://localhost:5173",
-            "http://localhost:3000"
+            "http://localhost:3000",
+            "https://taskm.duckdns.org"
         ]
     }
 })
@@ -38,7 +43,7 @@ def apply_sorting(query, sort_by=None, sort_order='asc'):
     return query.order_by(asc(sort_column))
 
 # Settings endpoints
-@app.route('/settings', methods=['GET'])
+@api.route('/settings', methods=['GET'])
 def get_settings():
     db = SessionLocal()
     try:
@@ -55,7 +60,7 @@ def get_settings():
     finally:
         db.close()
 
-@app.route('/settings', methods=['PUT'])
+@api.route('/settings', methods=['PUT'])
 def update_settings():
     data = request.get_json()
     db = SessionLocal()
@@ -77,7 +82,7 @@ def update_settings():
         db.close()
 
 # Create a task
-@app.route('/tasks', methods=['POST'])
+@api.route('/tasks', methods=['POST'])
 def create_task():
     data = request.get_json()
     db = SessionLocal()
@@ -102,21 +107,15 @@ def create_task():
         db.close()
 
 # Get all tasks
-@app.route('/tasks', methods=['GET'])
+@api.route('/tasks', methods=['GET'])
 def get_tasks():
     db = SessionLocal()
     try:
-        # Get sorting parameters from query string
         sort_by = request.args.get('sort_by')
         sort_order = request.args.get('sort_order', 'asc')
         
-        # Build query
         query = db.query(Task)
-        
-        # Apply sorting
         query = apply_sorting(query, sort_by, sort_order)
-        
-        # Execute query
         tasks = query.all()
         
         return jsonify([{
@@ -131,7 +130,7 @@ def get_tasks():
         db.close()
 
 # Get a single task
-@app.route('/tasks/<int:id>', methods=['GET'])
+@api.route('/tasks/<int:id>', methods=['GET'])
 def get_task(id):
     db = SessionLocal()
     try:
@@ -150,7 +149,7 @@ def get_task(id):
         db.close()
 
 # Update a task
-@app.route('/tasks/<int:id>', methods=['PUT'])
+@api.route('/tasks/<int:id>', methods=['PUT'])
 def update_task(id):
     data = request.get_json()
     db = SessionLocal()
@@ -182,7 +181,7 @@ def update_task(id):
         db.close()
 
 # Delete a task
-@app.route('/tasks/<int:id>', methods=['DELETE'])
+@api.route('/tasks/<int:id>', methods=['DELETE'])
 def delete_task(id):
     db = SessionLocal()
     try:
@@ -194,6 +193,9 @@ def delete_task(id):
         return '', 204
     finally:
         db.close()
+
+# Register the blueprint
+app.register_blueprint(api)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5555)
