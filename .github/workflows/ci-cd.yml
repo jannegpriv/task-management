@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: task-manager-api
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskmanagement
 
 jobs:
   test:
@@ -17,8 +18,8 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports:
           - 5432:5432
@@ -36,67 +37,51 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y postgresql-client
-
-    - name: Wait for PostgreSQL
-      env:
-        PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      run: |
-        echo "Waiting for PostgreSQL to be ready..."
-        until pg_isready -h localhost -p 5432 -U ${{ secrets.POSTGRES_USER }}; do
-          sleep 2
-          echo "Still waiting..."
-        done
-        echo "PostgreSQL is ready!"
-        
-        # Verify we can connect
-        psql -h localhost -U ${{ secrets.POSTGRES_USER }} -c "\l"
-
-    - name: Create test database
-      env:
-        PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      run: |
-        psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d postgres -c "CREATE DATABASE test_taskmanagement;"
-        
-    - name: Install Python dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest psycopg2-binary
+        pip install pytest pytest-cov
 
-    - name: Run Tests
-      env:
-        POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        POSTGRES_HOST: localhost
-        POSTGRES_DB: test_taskmanagement
-        DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost/test_taskmanagement
+    - name: Run tests
       run: |
-        pytest
+        pytest -v --cov=./ --cov-report=xml
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskmanagement
 
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Login to Container Registry
+      - name: Log in to the Container registry
         uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}:latest
-            ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
