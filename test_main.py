@@ -4,8 +4,8 @@ import test_config
 from models import Base, engine, SessionLocal, TaskStatus
 from sqlalchemy import text
 import time
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import asyncpg
+import urllib.parse
 import os
 
 def wait_for_db(max_retries=5, retry_interval=2):
@@ -13,55 +13,60 @@ def wait_for_db(max_retries=5, retry_interval=2):
     retries = 0
     while retries < max_retries:
         try:
-            # Try to connect directly with psycopg2
-            conn = psycopg2.connect(
-                dbname='postgres',  # Connect to default db first
-                user=os.getenv('POSTGRES_USER', 'postgres'),
-                password=os.getenv('POSTGRES_PASSWORD', 'postgres'),
-                host=os.getenv('POSTGRES_HOST', 'localhost'),
-                port=5432
+            # Try to connect directly with asyncpg
+            url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
+            parsed = urllib.parse.urlparse(url)
+            user = parsed.username
+            password = parsed.password
+            host = parsed.hostname
+            dbname = parsed.path[1:]  # Remove leading '/'
+            conn = asyncpg.connect(
+                user=user,
+                password=password,
+                host=host,
+                database='postgres'  # Connect to default db first
             )
-            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
             conn.close()
             return True
-        except psycopg2.OperationalError:
+        except asyncpg.OperationalError:
             retries += 1
             if retries == max_retries:
                 raise
             time.sleep(retry_interval)
     return False
 
-def create_test_db():
+async def create_test_db():
     """Create test database if it doesn't exist."""
-    conn = psycopg2.connect(
-        dbname='postgres',  # Connect to default db first
-        user=os.getenv('POSTGRES_USER', 'postgres'),
-        password=os.getenv('POSTGRES_PASSWORD', 'postgres'),
-        host=os.getenv('POSTGRES_HOST', 'localhost'),
-        port=5432
+    url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
+    parsed = urllib.parse.urlparse(url)
+    user = parsed.username
+    password = parsed.password
+    host = parsed.hostname
+    dbname = parsed.path[1:]  # Remove leading '/'
+
+    conn = await asyncpg.connect(
+        user=user,
+        password=password,
+        host=host,
+        database='postgres'  # Connect to default db to create test db
     )
-    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-    cur = conn.cursor()
-    
     # Check if database exists
-    cur.execute("SELECT 1 FROM pg_database WHERE datname = 'test_taskmanagement'")
-    if not cur.fetchone():
-        cur.execute('CREATE DATABASE test_taskmanagement')
-    
-    cur.close()
-    conn.close()
+    exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = 'test_taskmanagement'")
+    if not exists:
+        await conn.execute('CREATE DATABASE test_taskmanagement')
+    await conn.close()
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_database():
+async def setup_test_database():
     """Set up test database once for the entire test session."""
-    wait_for_db()
-    create_test_db()
+    await wait_for_db()
+    await create_test_db()
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(autouse=True)
-def setup_test_tables():
+async def setup_test_tables():
     """Set up fresh tables for each test."""
     # Clear all tables
     db = SessionLocal()
