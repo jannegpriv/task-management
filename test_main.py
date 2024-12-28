@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from main import app
 import test_config
 from models import Base, engine, SessionLocal, TaskStatus
@@ -8,25 +9,23 @@ import asyncpg
 import urllib.parse
 import os
 
-def wait_for_db(max_retries=5, retry_interval=2):
-    """Wait for the database to be ready."""
+pytestmark = pytest.mark.asyncio
+
+async def wait_for_db(max_retries=5, retry_interval=2):
+    """Wait for database to be ready."""
     retries = 0
     while retries < max_retries:
         try:
             # Try to connect directly with asyncpg
             url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
             parsed = urllib.parse.urlparse(url)
-            user = parsed.username
-            password = parsed.password
-            host = parsed.hostname
-            dbname = parsed.path[1:]  # Remove leading '/'
-            conn = asyncpg.connect(
-                user=user,
-                password=password,
-                host=host,
+            conn = await asyncpg.connect(
+                user=parsed.username,
+                password=parsed.password,
+                host=parsed.hostname,
                 database='postgres'  # Connect to default db first
             )
-            conn.close()
+            await conn.close()
             return True
         except asyncpg.OperationalError:
             retries += 1
@@ -39,22 +38,26 @@ async def create_test_db():
     """Create test database if it doesn't exist."""
     url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
     parsed = urllib.parse.urlparse(url)
-    user = parsed.username
-    password = parsed.password
-    host = parsed.hostname
-    dbname = parsed.path[1:]  # Remove leading '/'
 
     conn = await asyncpg.connect(
-        user=user,
-        password=password,
-        host=host,
+        user=parsed.username,
+        password=parsed.password,
+        host=parsed.hostname,
         database='postgres'  # Connect to default db to create test db
     )
+
     # Check if database exists
     exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = 'test_taskmanagement'")
     if not exists:
         await conn.execute('CREATE DATABASE test_taskmanagement')
     await conn.close()
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
 @pytest.fixture(scope="session", autouse=True)
 async def setup_test_database():
@@ -70,10 +73,12 @@ async def setup_test_tables():
     """Set up fresh tables for each test."""
     # Clear all tables
     db = SessionLocal()
-    for table in reversed(Base.metadata.sorted_tables):
-        db.execute(text(f'TRUNCATE TABLE {table.name} CASCADE'))
-    db.commit()
-    db.close()
+    try:
+        for table in reversed(Base.metadata.sorted_tables):
+            db.execute(text(f'TRUNCATE TABLE {table.name} CASCADE'))
+        db.commit()
+    finally:
+        db.close()
     yield
 
 @pytest.fixture
@@ -82,20 +87,20 @@ def client():
     with app.test_client() as client:
         yield client
 
-def test_create_task(client):
+async def test_create_task(client):
     """Test creating a new task."""
     response = client.post('/api/tasks', json={'title': 'Test Task'})
     assert response.status_code == 201
     assert response.json['title'] == 'Test Task'
     assert response.json['status'] == TaskStatus.TODO.value
 
-def test_get_tasks(client):
+async def test_get_tasks(client):
     """Test getting all tasks."""
     response = client.get('/api/tasks')
     assert response.status_code == 200
     assert isinstance(response.json, list)
 
-def test_update_task(client):
+async def test_update_task(client):
     """Test updating a task."""
     # First create a task
     create_response = client.post('/api/tasks', json={'title': 'Test Task'})
