@@ -25,7 +25,7 @@ def wait_for_db(max_retries=5, retry_interval=2):
     retries = 0
     while retries < max_retries:
         try:
-            url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
+            url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/test_taskmanagement')
             conn_params = parse_db_url(url)
             conn = psycopg2.connect(**conn_params)
             conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
@@ -40,7 +40,7 @@ def wait_for_db(max_retries=5, retry_interval=2):
 
 def create_test_db():
     """Create test database if it doesn't exist."""
-    url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/taskmanagement')
+    url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/test_taskmanagement')
     conn_params = parse_db_url(url)
     
     conn = psycopg2.connect(**conn_params)

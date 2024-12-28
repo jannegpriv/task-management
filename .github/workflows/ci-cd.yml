@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: task-manager-api
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskmanagement
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_taskmanagement
 
 jobs:
   test:
@@ -47,7 +47,7 @@ jobs:
       run: |
         pytest -v --cov=./ --cov-report=xml
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskmanagement
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_taskmanagement
 
   build-and-push:
     needs: test
