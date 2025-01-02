@@ -1,61 +1,98 @@
-# Task Management API
+# Task Management Backend
 
-A cloud-native task management API built with Python Flask, containerized with Docker, and deployed on Kubernetes. This project demonstrates the implementation of a RESTful CRUD API with CI/CD pipeline using GitHub Actions.
+A Flask-based REST API for managing tasks. This service provides the backend functionality for the Task Management application.
 
-## Features
+## Architecture
 
-- RESTful API endpoints for task management (Create, Read, Update, Delete)
-- Containerized application using Docker
-- CI/CD pipeline with GitHub Actions
-- Kubernetes deployment ready
-- Comprehensive test suite
-
-## Technical Stack
-
-- **Backend**: Python Flask
-- **Containerization**: Docker
-- **CI/CD**: GitHub Actions
+- **Framework**: Flask
+- **Database**: PostgreSQL
 - **Container Registry**: GitHub Container Registry (ghcr.io)
-- **Orchestration**: Kubernetes
-- **Testing**: pytest
+- **CI/CD**: GitHub Actions
+- **Deployment**: Kubernetes via [task-management-k8s](https://github.com/jannegpriv/task-management-k8s)
+
+## Local Development
+
+### Prerequisites
+- Python 3.9+
+- PostgreSQL
+- Docker (optional)
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/jannegpriv/task-management.git
+cd task-management
+```
+
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Set environment variables:
+```bash
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/taskmanagement
+```
+
+5. Run the application:
+```bash
+flask run
+```
+
+The API will be available at `http://localhost:5000`
+
+### Using Docker
+
+Build and run the application using Docker:
+```bash
+docker build -t task-management .
+docker run -p 5000:5000 -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/taskmanagement task-management
+```
 
 ## API Endpoints
 
-- `POST /tasks`: Create a new task
-- `GET /tasks`: List all tasks
-- `GET /tasks/<id>`: Get a specific task
-- `PUT /tasks/<id>`: Update a task
-- `DELETE /tasks/<id>`: Delete a task
-
-## Development Setup
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Run the application:
-   ```bash
-   python main.py
-   ```
-
-## Running Tests
-
-```bash
-pytest
-```
-
-## Docker Build
-
-```bash
-docker build -t taskmanagement .
-docker run -p 5000:5000 taskmanagement
-```
+- `GET /api/tasks` - List all tasks
+- `POST /api/tasks` - Create a new task
+- `GET /api/tasks/<id>` - Get a specific task
+- `PUT /api/tasks/<id>` - Update a task
+- `DELETE /api/tasks/<id>` - Delete a task
 
 ## Deployment
 
-The application is automatically built and deployed using GitHub Actions when changes are pushed to the main branch. The pipeline:
-1. Runs tests
-2. Builds Docker image
-3. Pushes to GitHub Container Registry
-4. Can be configured to deploy to Kubernetes cluster
+This service is deployed using GitHub Actions and Kubernetes:
+
+1. Changes pushed to main trigger the CI/CD pipeline
+2. The pipeline:
+   - Runs tests
+   - Builds a Docker image
+   - Pushes to GitHub Container Registry
+   - Tags with both `latest` and git version tag (if present)
+
+### Release Process
+
+To create a new release:
+
+1. Tag the commit:
+```bash
+git tag -a v1.1.0 -m "Description of changes"
+git push origin v1.1.0
+```
+
+2. GitHub Actions will automatically:
+   - Build the Docker image
+   - Tag it as `ghcr.io/jannegpriv/task-management:v1.1.0`
+   - Push to the registry
+
+3. Update the Kubernetes manifests in [task-management-k8s](https://github.com/jannegpriv/task-management-k8s) to use the new version.
+
+## Related Repositories
+
+- [task-management-ui](https://github.com/jannegpriv/task-management-ui) - Frontend React application
+- [task-management-k8s](https://github.com/jannegpriv/task-management-k8s) - Kubernetes manifests
