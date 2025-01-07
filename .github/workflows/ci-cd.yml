@@ -61,6 +61,7 @@ jobs:
         run: |
           echo "Checking network configuration..."
           echo "Pinging the PostgreSQL service..."
+          echo "Database URL: postgresql://${{ secrets.DB_USER }}:***@${{ secrets.DB_HOST }}:5432/test_taskmanagement"
           ping -c 1 ${{ secrets.DB_HOST }}
           echo "Resolving the PostgreSQL service..."
           nslookup ${{ secrets.DB_HOST }}
