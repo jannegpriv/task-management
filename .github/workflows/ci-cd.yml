@@ -60,10 +60,10 @@ jobs:
       - name: Debug network configuration
         run: |
           echo "Checking network configuration..."
-          echo "Pinging postgres.service.github_network..."
-          ping -c 1 postgres.service.github_network
-          echo "Resolving postgres.service.github_network..."
-          nslookup postgres.service.github_network
+          echo "Pinging the PostgreSQL service..."
+          ping -c 1 ${{ secrets.DB_HOST }}
+          echo "Resolving the PostgreSQL service..."
+          nslookup ${{ secrets.DB_HOST }}
           echo "Checking open ports..."
           netstat -an | grep 5432
 
@@ -75,10 +75,10 @@ jobs:
       - name: Run tests
         env:
           CI: true
-          DATABASE_URL: postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@postgres.service.github_network:5432/test_taskmanagement
+          DATABASE_URL: postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}:5432/test_taskmanagement
         run: |
           echo "Testing database connection..."
-          echo "Database URL: $DATABASE_URL"
+          echo "Database URL: postgresql://${{ secrets.DB_USER }}:***@${{ secrets.DB_HOST }}:5432/test_taskmanagement"
           python -c "
           import os
           import psycopg2
