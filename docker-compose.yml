@@ -6,7 +6,7 @@ services:
     ports:
       - "5555:5555"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/taskmanagement
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       - db
     volumes:
@@ -17,13 +17,26 @@ services:
   db:
     image: postgres:15
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=taskmanagement
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - task-network
+
+  test:
+    build: .
+    command: pytest
+    environment:
+      - CI=true
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/test_taskmanagement
+    depends_on:
+      - db
+    volumes:
+      - .:/app
     networks:
       - task-network
 

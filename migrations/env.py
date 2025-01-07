@@ -11,9 +11,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from models import Base
 
+def get_url():
+    return os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/taskmanagement")
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# override sqlalchemy.url with environment variable if present
+if os.getenv("DATABASE_URL"):
+    config.set_main_option("sqlalchemy.url", get_url())
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

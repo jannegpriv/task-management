@@ -22,3 +22,5 @@ var/
 .venv
 venv/
 ENV/
+.env.*
+!.env.example

@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database connection
-DATABASE_URL = f'postgresql://{os.getenv("DB_USER", "postgres")}:{os.getenv("DB_PASSWORD", "postgres")}@{os.getenv("DB_HOST", "db")}/{os.getenv("DB_NAME", "taskmanagement")}'
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
 engine = create_engine(DATABASE_URL)
 
 def migrate():
