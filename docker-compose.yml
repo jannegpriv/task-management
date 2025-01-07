@@ -6,7 +6,7 @@ services:
     ports:
       - "5555:5555"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/taskmanagement
     depends_on:
       - db
     volumes:
@@ -32,7 +32,7 @@ services:
     command: pytest
     environment:
       - CI=true
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/test_taskmanagement
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/test_taskmanagement
     depends_on:
       - db
     volumes:
