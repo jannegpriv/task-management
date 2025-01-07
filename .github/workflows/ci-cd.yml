@@ -56,23 +56,6 @@ jobs:
             echo "Waiting for PostgreSQL... Attempt $i"
             sleep 5
           done
-
-      - name: Debug network configuration
-        run: |
-          echo "Checking network configuration..."
-          echo "Pinging the PostgreSQL service..."
-          echo "Database URL: postgresql://${{ secrets.DB_USER }}:***@${{ secrets.DB_HOST }}:5432/test_taskmanagement"
-          ping -c 1 ${{ secrets.DB_HOST }}
-          echo "Resolving the PostgreSQL service..."
-          nslookup ${{ secrets.DB_HOST }}
-          echo "Checking open ports..."
-          netstat -an | grep 5432
-
-      - name: Inspect Docker network
-        run: |
-          echo "Inspecting Docker network..."
-          docker network inspect github_network
-
       - name: Run tests
         env:
           CI: true
