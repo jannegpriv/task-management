@@ -60,14 +60,22 @@ jobs:
       - name: Debug network configuration
         run: |
           echo "Checking network configuration..."
-          ping -c 1 postgres
-          nslookup postgres
+          echo "Pinging postgres.service.github_network..."
+          ping -c 1 postgres.service.github_network
+          echo "Resolving postgres.service.github_network..."
+          nslookup postgres.service.github_network
+          echo "Checking open ports..."
           netstat -an | grep 5432
+
+      - name: Inspect Docker network
+        run: |
+          echo "Inspecting Docker network..."
+          docker network inspect github_network
 
       - name: Run tests
         env:
           CI: true
-          DATABASE_URL: postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@postgres:5432/test_taskmanagement
+          DATABASE_URL: postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@postgres.service.github_network:5432/test_taskmanagement
         run: |
           echo "Testing database connection..."
           echo "Database URL: $DATABASE_URL"
