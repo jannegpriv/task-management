@@ -44,38 +44,43 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..10}; do
+            if docker exec postgres pg_isready -U ${{ secrets.DB_USER }} -d test_taskmanagement; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "Waiting for PostgreSQL... Attempt $i"
+            sleep 5
+          done
+
+      - name: Debug network configuration
+        run: |
+          echo "Checking network configuration..."
+          ping -c 1 postgres
+          nslookup postgres
+          netstat -an | grep 5432
+
       - name: Run tests
         env:
           CI: true
           DATABASE_URL: postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@postgres:5432/test_taskmanagement
         run: |
           echo "Testing database connection..."
-          echo "Database host: postgres"
-          echo "Database port: 5432"
-          echo "Database name: test_taskmanagement"
+          echo "Database URL: $DATABASE_URL"
           python -c "
           import os
           import psycopg2
           print(f'CI environment: {os.getenv(\"CI\")}')
-          print(f'Database URL components: postgres:5432/test_taskmanagement')
-          conn = psycopg2.connect(
-              dbname='test_taskmanagement',
-              user='${{ secrets.DB_USER }}',
-              password='${{ secrets.DB_PASSWORD }}',
-              host='postgres',
-              port=5432
-          )
+          print(f'Database URL: {os.getenv(\"DATABASE_URL\")}')
+          conn = psycopg2.connect(os.getenv('DATABASE_URL'))
           print('Connection successful!')
           conn.close()
           "
           pytest
-
-      - name: Check network
-        run: |
-          echo "Checking network configuration..."
-          ping -c 1 postgres || true
-          netstat -an | grep 5432 || true
 
   build-and-push:
     if: |
