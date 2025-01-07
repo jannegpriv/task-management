@@ -13,7 +13,7 @@ def parse_db_url(url):
     """Parse DATABASE_URL into connection parameters."""
     parsed = urlparse(url)
     return {
-        'dbname': 'postgres',  # Initially connect to default db
+        'dbname': parsed.path[1:],  # Remove leading '/' from path
         'user': parsed.username,
         'password': parsed.password,
         'host': parsed.hostname,
