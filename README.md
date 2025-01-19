@@ -68,6 +68,57 @@ docker run -p 5000:5000 -e DATABASE_URL=postgresql://postgres:postgres@host.dock
 
 This service is deployed using GitHub Actions and Kubernetes:
 
+### CI/CD Pipeline
+
+```mermaid
+flowchart TD
+    subgraph Triggers
+        A[Push to main branch] --> D[Pipeline Start]
+        B[Push tag v*.*.*] --> D
+        C[Pull Request to main] --> D
+    end
+
+    subgraph test[Test Job]
+        D --> E[Setup PostgreSQL Service]
+        E --> F[Setup Python 3.9]
+        F --> G[Install Dependencies]
+        G --> H[Wait for PostgreSQL]
+        H --> I[Run Tests]
+    end
+
+    subgraph build[Build and Push Job]
+        I -->|Success| J{Check Conditions}
+        J -->|Tag or Main Branch| K[Login to Registry]
+        K --> L[Get Version]
+        L --> M[Build & Push Image]
+    end
+
+    subgraph tags[Image Tags]
+        M --> N[Latest Tag]
+        M --> O[Version Tag]
+        M --> P[SHA Tag]
+    end
+
+    style test fill:#f0f7ff,stroke:#4788c7
+    style build fill:#f1fff0,stroke:#47c747
+    style Triggers fill:#fff0f0,stroke:#c74747
+    style tags fill:#f7f0ff,stroke:#8347c7
+```
+
+The pipeline is triggered by:
+- Push to main branch
+- Push of version tags (v*.*.*)
+- Pull requests to main branch
+
+The pipeline consists of two main jobs:
+1. **Test Job**: Sets up PostgreSQL, runs the test suite
+2. **Build and Push Job**: Builds and pushes Docker image if tests pass and trigger is either main branch or version tag
+
+Images are tagged with:
+- Latest: Always updated for main branch and version tags
+- Version: Applied when pushing version tags (e.g., v1.0.0)
+- SHA: Short commit hash for main branch pushes
+
 1. Changes pushed to main trigger the CI/CD pipeline
 2. The pipeline:
    - Runs tests
@@ -96,3 +147,51 @@ git push origin v1.1.0
 
 - [task-management-ui](https://github.com/jannegpriv/task-management-ui) - Frontend React application
 - [task-management-k8s](https://github.com/jannegpriv/task-management-k8s) - Kubernetes manifests
+
+## Architecture Diagrams
+
+### Application Data Flow
+```mermaid
+graph TD
+    A[Client] -->|HTTP Requests| B[Flask API]
+    B -->|SQLAlchemy ORM| C[PostgreSQL Database]
+    
+    subgraph Flask Application
+        B -->|Create| D[Task Routes]
+        B -->|Read| D
+        B -->|Update| D
+        B -->|Delete| D
+        B -->|Settings| E[Settings Routes]
+        D -->|Models| F[Task Model]
+        E -->|Models| G[Settings Model]
+    end
+    
+    subgraph Database
+        F -->|Store| C
+        G -->|Store| C
+    end
+```
+
+### Development and Deployment Flow
+```mermaid
+graph LR
+    A[Local Development] -->|git push| B[GitHub Repository]
+    
+    subgraph GitHub Actions
+        B -->|Trigger| C[Run Tests]
+        C -->|Success| D[Build Docker Image]
+        D -->|Push| E[GitHub Container Registry]
+    end
+    
+    subgraph Testing
+        C -->|Use| F[PostgreSQL Service]
+        C -->|Run| G[pytest]
+    end
+    
+    subgraph Docker
+        H[docker-compose] -->|Local Testing| I[Test Service]
+        H -->|Development| J[API Service]
+        H -->|Database| K[PostgreSQL Service]
+        I -->|Connect| K
+        J -->|Connect| K
+    end
