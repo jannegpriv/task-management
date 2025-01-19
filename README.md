@@ -64,6 +64,35 @@ docker run -p 5000:5000 -e DATABASE_URL=postgresql://postgres:postgres@host.dock
 - `PUT /api/tasks/<id>` - Update a task
 - `DELETE /api/tasks/<id>` - Delete a task
 
+## Related Repositories
+
+- [task-management-ui](https://github.com/jannegpriv/task-management-ui) - Frontend React application
+- [task-management-k8s](https://github.com/jannegpriv/task-management-k8s) - Kubernetes manifests
+
+## Architecture Diagrams
+
+### Application Data Flow
+```mermaid
+graph TD
+    A[Client] -->|HTTP Requests| B[Flask API]
+    B -->|SQLAlchemy ORM| C[PostgreSQL Database]
+    
+    subgraph Flask Application
+        B -->|Create| D[Task Routes]
+        B -->|Read| D
+        B -->|Update| D
+        B -->|Delete| D
+        B -->|Settings| E[Settings Routes]
+        D -->|Models| F[Task Model]
+        E -->|Models| G[Settings Model]
+    end
+    
+    subgraph Database
+        F -->|Store| C
+        G -->|Store| C
+    end
+```
+
 ## Deployment
 
 This service is deployed using GitHub Actions and Kubernetes:
@@ -142,56 +171,3 @@ git push origin v1.1.0
    - Push to the registry
 
 3. Update the Kubernetes manifests in [task-management-k8s](https://github.com/jannegpriv/task-management-k8s) to use the new version.
-
-## Related Repositories
-
-- [task-management-ui](https://github.com/jannegpriv/task-management-ui) - Frontend React application
-- [task-management-k8s](https://github.com/jannegpriv/task-management-k8s) - Kubernetes manifests
-
-## Architecture Diagrams
-
-### Application Data Flow
-```mermaid
-graph TD
-    A[Client] -->|HTTP Requests| B[Flask API]
-    B -->|SQLAlchemy ORM| C[PostgreSQL Database]
-    
-    subgraph Flask Application
-        B -->|Create| D[Task Routes]
-        B -->|Read| D
-        B -->|Update| D
-        B -->|Delete| D
-        B -->|Settings| E[Settings Routes]
-        D -->|Models| F[Task Model]
-        E -->|Models| G[Settings Model]
-    end
-    
-    subgraph Database
-        F -->|Store| C
-        G -->|Store| C
-    end
-```
-
-### Development and Deployment Flow
-```mermaid
-graph LR
-    A[Local Development] -->|git push| B[GitHub Repository]
-    
-    subgraph GitHub Actions
-        B -->|Trigger| C[Run Tests]
-        C -->|Success| D[Build Docker Image]
-        D -->|Push| E[GitHub Container Registry]
-    end
-    
-    subgraph Testing
-        C -->|Use| F[PostgreSQL Service]
-        C -->|Run| G[pytest]
-    end
-    
-    subgraph Docker
-        H[docker-compose] -->|Local Testing| I[Test Service]
-        H -->|Development| J[API Service]
-        H -->|Database| K[PostgreSQL Service]
-        I -->|Connect| K
-        J -->|Connect| K
-    end
